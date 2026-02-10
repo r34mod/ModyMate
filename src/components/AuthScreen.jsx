@@ -1,9 +1,9 @@
 // ================================================
-// LOGIN / REGISTER — GlicoHack v3
+// LOGIN / REGISTER — GlicoHack v4
 // ================================================
 
 import { useState } from 'react';
-import { Activity, Mail, Lock, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { Activity, Mail, MailCheck, Lock, Eye, EyeOff, UserPlus, LogIn, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/useAuth';
 
 export default function AuthScreen() {
@@ -15,6 +15,8 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,7 +29,8 @@ export default function AuthScreen() {
         await signIn(email, password);
       } else {
         await signUp(email, password);
-        setSuccess('¡Cuenta creada! Revisa tu email para confirmar el registro.');
+        setRegisteredEmail(email);
+        setEmailSent(true);
         setEmail('');
         setPassword('');
       }
@@ -54,8 +57,45 @@ export default function AuthScreen() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Plan Nutricional MODY 2</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6">
+        {/* ---- PANTALLA DE CONFIRMACIÓN DE EMAIL ---- */}
+        {emailSent ? (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 animate-fade-in-up">
+            {/* Icono animado */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center animate-bounce">
+                <MailCheck size={32} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white text-center mb-2">
+              ¡Revisa tu bandeja de entrada!
+            </h2>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+              Hemos enviado un enlace de confirmación a{' '}
+              <strong className="text-gray-800 dark:text-gray-200">{registeredEmail}</strong>
+            </p>
+
+            {/* Aviso SPAM */}
+            <div className="border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-r-xl mb-5">
+              <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">
+                ⚠️ Atención: El correo de confirmación suele caer en la carpeta de{' '}
+                <strong>SPAM</strong> o <strong>Correo No Deseado</strong>. Búscalo a nombre de{' '}
+                <span className="font-mono text-xs bg-yellow-100 dark:bg-yellow-800/40 px-1.5 py-0.5 rounded">Supabase (noreply@supabase.io)</span>
+              </p>
+            </div>
+
+            {/* Botón volver al login */}
+            <button
+              onClick={() => { setEmailSent(false); setIsLogin(true); setError(''); setSuccess(''); }}
+              className="w-full flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer"
+            >
+              <ArrowLeft size={16} />
+              Ir al Login
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6">
           {/* Tabs */}
           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1 mb-6">
             <button
@@ -159,9 +199,10 @@ export default function AuthScreen() {
             </button>
           </form>
         </div>
+        )}
 
         <p className="text-center text-[10px] text-gray-400 dark:text-gray-600 mt-6">
-          GlicoHack v3.0 · Tus datos están protegidos con Supabase
+          GlicoHack v4.0 · Tus datos están protegidos con Supabase
         </p>
       </div>
     </div>
