@@ -1,9 +1,10 @@
 // ================================================
-// AUTH CONTEXT — GlicoHack v3
+// AUTH CONTEXT — GlicoHack v4
 // Login · Register · Session · Profile
+// Failsafe: timeout 3s · mounted guard · INITIAL_SESSION
 // ================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { AuthContext } from './authContextDef';
 
@@ -11,49 +12,74 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
   // ---- Fetch profile from DB ----
   const fetchProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (error) {
-      console.error('Error fetching profile:', error.message);
+      if (error) {
+        console.error('Error fetching profile:', error.message);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.error('fetchProfile exception:', err);
       return null;
     }
-    return data;
   }, []);
 
   // ---- Listen for auth changes ----
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      setSession(s);
-      if (s?.user) {
-        const p = await fetchProfile(s.user.id);
-        setProfile(p);
-      }
-      setLoading(false);
-    });
+    mountedRef.current = true;
+    let resolved = false;
 
-    // Subscribe to changes
+    // FAILSAFE: Si Supabase no responde en 3s, desbloquear UI
+    const failsafe = setTimeout(() => {
+      if (!resolved && mountedRef.current) {
+        console.warn('Auth failsafe: forcing loading=false after 3s timeout');
+        resolved = true;
+        setLoading(false);
+      }
+    }, 3000);
+
+    // Subscribe to auth state changes (includes INITIAL_SESSION)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
+      async (event, s) => {
+        if (!mountedRef.current) return;
+
         setSession(s);
+
         if (s?.user) {
           const p = await fetchProfile(s.user.id);
-          setProfile(p);
+          if (mountedRef.current) setProfile(p);
         } else {
           setProfile(null);
         }
-        setLoading(false);
+
+        // Desbloquear loading en INITIAL_SESSION o SIGNED_OUT
+        if (!resolved && (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT' || event === 'SIGNED_IN')) {
+          resolved = true;
+          if (mountedRef.current) setLoading(false);
+        }
+
+        // Siempre desbloquear en SIGNED_OUT por seguridad
+        if (event === 'SIGNED_OUT' && mountedRef.current) {
+          setLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(failsafe);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   // ---- Sign Up ----
