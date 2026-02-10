@@ -1,7 +1,8 @@
 // ================================================
-// MOTOR DE PLANIFICACIÓN — GlicoHack v3
+// MOTOR DE PLANIFICACIÓN — GlicoHack v4
 // Rolling Window de 15 días · Supabase · Auto-generación
 // Regla de Compensación: Comida con carbs → Cena Low Carb
+// Filtrado de alérgenos por perfil
 // ================================================
 
 import { v4 as uuidv4 } from 'uuid';
@@ -22,6 +23,17 @@ import {
 
 const WINDOW_SIZE = 15;
 
+// ---- Filtrado de alérgenos ----
+
+function filterByAllergens(meals, userAllergens = []) {
+  if (!userAllergens || userAllergens.length === 0) return meals;
+  const filtered = meals.filter(
+    (m) => !m.allergens || !m.allergens.some((a) => userAllergens.includes(a))
+  );
+  // Fallback: si filtramos todo, devolver original para no romper la app
+  return filtered.length > 0 ? filtered : meals;
+}
+
 // ---- Helpers ----
 
 function pickRandom(arr, recentIds = [], avoidLast = 3) {
@@ -37,37 +49,52 @@ function getComidaPattern(dayIndex) {
   return patterns[dayIndex % 3];
 }
 
-function pickComida(pattern, recentIds) {
+function pickComida(pattern, recentIds, filteredMeals) {
   switch (pattern) {
     case 'carbs':
-      return pickRandom(COMIDAS_CARBS, recentIds);
+      return pickRandom(filteredMeals.carbs, recentIds);
     case 'legumbres':
-      return pickRandom(COMIDAS_LEGUMBRES, recentIds);
+      return pickRandom(filteredMeals.legumbres, recentIds);
     case 'verdura':
-      return pickRandom(COMIDAS_VERDURA, recentIds);
+      return pickRandom(filteredMeals.verdura, recentIds);
     default:
-      return pickRandom(COMIDAS_VERDURA, recentIds);
+      return pickRandom(filteredMeals.verdura, recentIds);
   }
 }
 
-function pickCena(comidaHasCarbs, recentCenaIds) {
-  // REGLA DE COMPENSACIÓN: Si comida tuvo carbs → cena OBLIGATORIA low carb
+function pickCena(comidaHasCarbs, recentCenaIds, filteredMeals) {
   if (comidaHasCarbs) {
-    return pickRandom(CENAS_LOW_CARB, recentCenaIds);
+    return pickRandom(filteredMeals.cenasLow, recentCenaIds);
   }
-  return pickRandom(CENAS_FLEXIBLES, recentCenaIds);
+  return pickRandom(filteredMeals.cenasFlex, recentCenaIds);
+}
+
+/**
+ * Pre-filtra todas las categorías según alérgenos del perfil.
+ */
+function buildFilteredMeals(userAllergens) {
+  return {
+    desayunos: filterByAllergens(DESAYUNOS, userAllergens),
+    mediaManana: filterByAllergens(MEDIA_MANANA, userAllergens),
+    carbs: filterByAllergens(COMIDAS_CARBS, userAllergens),
+    legumbres: filterByAllergens(COMIDAS_LEGUMBRES, userAllergens),
+    verdura: filterByAllergens(COMIDAS_VERDURA, userAllergens),
+    meriendas: filterByAllergens(MERIENDAS, userAllergens),
+    cenasLow: filterByAllergens(CENAS_LOW_CARB, userAllergens),
+    cenasFlex: filterByAllergens(CENAS_FLEXIBLES, userAllergens),
+  };
 }
 
 // ---- Generador de un solo día ----
 
-function generateSingleDay(dateObj, dayIndex, recentMeals) {
+function generateSingleDay(dateObj, dayIndex, recentMeals, filteredMeals) {
   const pattern = getComidaPattern(dayIndex);
 
-  const desayuno = pickRandom(DESAYUNOS, recentMeals.desayunos);
-  const mediaManana = pickRandom(MEDIA_MANANA, recentMeals.mediaManana);
-  const comida = pickComida(pattern, recentMeals.comidas);
-  const merienda = pickRandom(MERIENDAS, recentMeals.meriendas);
-  const cena = pickCena(comida.hasCarbs, recentMeals.cenas);
+  const desayuno = pickRandom(filteredMeals.desayunos, recentMeals.desayunos);
+  const mediaManana = pickRandom(filteredMeals.mediaManana, recentMeals.mediaManana);
+  const comida = pickComida(pattern, recentMeals.comidas, filteredMeals);
+  const merienda = pickRandom(filteredMeals.meriendas, recentMeals.meriendas);
+  const cena = pickCena(comida.hasCarbs, recentMeals.cenas, filteredMeals);
 
   // Actualizar recientes
   recentMeals.desayunos.push(desayuno.id);
@@ -101,8 +128,10 @@ function generateSingleDay(dateObj, dayIndex, recentMeals) {
 
 /**
  * Genera un plan completo de N días desde una fecha.
+ * @param {Date} fromDate
+ * @param {object} profile - Perfil del usuario (con .alergias)
  */
-export function generateInitialPlan(fromDate = new Date()) {
+export function generateInitialPlan(fromDate = new Date(), profile = {}) {
   const start = startOfDay(fromDate);
   const plan = [];
   const recentMeals = {
@@ -112,10 +141,11 @@ export function generateInitialPlan(fromDate = new Date()) {
     meriendas: [],
     cenas: [],
   };
+  const filteredMeals = buildFilteredMeals(profile.alergias || []);
 
   for (let i = 0; i < WINDOW_SIZE; i++) {
     const date = addDays(start, i);
-    plan.push(generateSingleDay(date, i, recentMeals));
+    plan.push(generateSingleDay(date, i, recentMeals, filteredMeals));
   }
 
   return plan;
@@ -124,8 +154,10 @@ export function generateInitialPlan(fromDate = new Date()) {
 /**
  * Rolling Window: Extiende el plan para cubrir hoy + 14 días.
  * Limpia los días anteriores a ayer.
+ * @param {Array} existingPlan
+ * @param {object} profile - Perfil del usuario (con .alergias)
  */
-export function syncPlan(existingPlan) {
+export function syncPlan(existingPlan, profile = {}) {
   const today = startOfDay(new Date());
   const yesterday = subDays(today, 1);
 
@@ -148,11 +180,12 @@ export function syncPlan(existingPlan) {
   // 4. Generar los días que falten
   if (lastDate < targetEnd) {
     const recentMeals = buildRecentFromPlan(plan);
+    const filteredMeals = buildFilteredMeals(profile.alergias || []);
     let dayIndex = plan.length;
     let nextDate = addDays(lastDate, 1);
 
     while (nextDate <= targetEnd) {
-      plan.push(generateSingleDay(nextDate, dayIndex, recentMeals));
+      plan.push(generateSingleDay(nextDate, dayIndex, recentMeals, filteredMeals));
       nextDate = addDays(nextDate, 1);
       dayIndex++;
     }

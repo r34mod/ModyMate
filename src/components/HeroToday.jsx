@@ -8,12 +8,16 @@ const MEAL_SLOTS = [
   { key: 'cena', label: 'Cena', emoji: '🌙', time: '21:00' },
 ];
 
-export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed }) {
+export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, profile = {} }) {
   if (!day) return null;
 
   const todayTracking = tracking[day.date] || {};
   const completedMeals = MEAL_SLOTS.filter((s) => todayTracking[s.key]).length;
   const progress = (completedMeals / MEAL_SLOTS.length) * 100;
+
+  const tratamiento = profile.tratamiento || 'oral';
+  const medName = profile.nombre_medicacion || 'Medicación';
+  const showMeds = tratamiento !== 'dieta';
 
   return (
     <div className="animate-fade-in-up">
@@ -44,6 +48,7 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed }) 
       </div>
 
       {/* Medication reminders */}
+      {showMeds && (
       <div className="grid grid-cols-2 gap-3 mb-4">
         {['desayuno', 'cena'].map((slot) => {
           const taken = todayTracking[`med_${slot}`];
@@ -63,13 +68,14 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed }) 
                 {taken ? <Check size={16} /> : <Pill size={16} />}
               </div>
               <div className="text-left">
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">Synjardy</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">{tratamiento === 'insulina' ? '💉 ' : '💊 '}{medName}</p>
                 <p className="text-xs font-bold text-gray-800 dark:text-gray-200 capitalize">{slot}</p>
               </div>
             </button>
           );
         })}
       </div>
+      )}
 
       {/* Meals list */}
       <div className="space-y-2.5">

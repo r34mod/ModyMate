@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from './context/useAuth';
 import AuthScreen from './components/AuthScreen';
-import Onboarding from './components/Onboarding';
+import OnboardingWizard from './components/OnboardingWizard';
 import Header from './components/Header';
 import Welcome from './components/Welcome';
 import HeroToday from './components/HeroToday';
@@ -42,7 +42,7 @@ function App() {
         setTracking(savedTracking);
 
         if (saved && saved.length > 0) {
-          const synced = syncPlan(saved);
+          const synced = syncPlan(saved, profile);
           setPlan(synced);
           await savePlanToSupabase(user.id, synced);
         }
@@ -62,7 +62,7 @@ function App() {
     if (!user) return;
     setLoading(true);
     try {
-      const newPlan = generateInitialPlan();
+      const newPlan = generateInitialPlan(new Date(), profile);
       setPlan(newPlan);
       setTracking({});
       setView('home');
@@ -72,7 +72,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profile]);
 
   const handleReset = useCallback(async () => {
     if (!user) return;
@@ -141,7 +141,7 @@ function App() {
 
   // ---- No Profile / Onboarding ----
   if (!profile?.onboarding_complete) {
-    return <Onboarding />;
+    return <OnboardingWizard />;
   }
 
   // ---- Main App ----
@@ -183,6 +183,7 @@ function App() {
                 tracking={tracking}
                 onToggleMeal={handleToggleMeal}
                 onToggleMed={handleToggleMed}
+                profile={profile}
               />
             )}
 
@@ -210,6 +211,7 @@ function App() {
             tracking={tracking}
             onToggleMeal={handleToggleMeal}
             onToggleMed={handleToggleMed}
+            profile={profile}
           />
         )}
 
@@ -243,7 +245,7 @@ function App() {
 
       {/* Footer */}
       <footer className="text-center py-6 text-[10px] text-gray-400 dark:text-gray-600">
-        GlicoHack v3.0 — Plan nutricional MODY 2 · Supabase · No sustituye el consejo médico
+        GlicoHack v4.0 — Plan nutricional MODY 2 · Supabase · No sustituye el consejo médico
       </footer>
     </div>
   );

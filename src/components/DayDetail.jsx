@@ -14,10 +14,13 @@ const patternLabels = {
   verdura: '🥗 Verdura + Proteína',
 };
 
-export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggleMed }) {
+export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggleMed, profile = {} }) {
   if (!day) return null;
 
   const dayTracking = tracking[day.date] || {};
+  const tratamiento = profile.tratamiento || 'oral';
+  const medName = profile.nombre_medicacion || 'Medicación';
+  const showMeds = tratamiento !== 'dieta';
 
   return (
     <div className="animate-fade-in-up">
@@ -50,6 +53,7 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
       </div>
 
       {/* Medication */}
+      {showMeds && (
       <div className="grid grid-cols-2 gap-3 mb-5">
         {['desayuno', 'cena'].map((slot) => {
           const taken = dayTracking[`med_${slot}`];
@@ -69,13 +73,14 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
                 {taken ? <Check size={14} /> : <Pill size={14} />}
               </div>
               <div className="text-left">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Synjardy</p>
+                <p className="text-[10px] text-gray-400 uppercase font-bold">{tratamiento === 'insulina' ? '💉 ' : '💊 '}{medName}</p>
                 <p className="text-xs font-bold text-gray-700 dark:text-gray-300 capitalize">{slot}</p>
               </div>
             </button>
           );
         })}
       </div>
+      )}
 
       {/* Meals */}
       <div className="space-y-3">
