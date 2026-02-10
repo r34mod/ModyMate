@@ -1,4 +1,6 @@
-import { Pill, Droplets, ArrowLeft, Check } from 'lucide-react';
+import { Pill, Droplets, ArrowLeft, Check, RefreshCw } from 'lucide-react';
+
+const MEAL_ORDER = ['desayuno', 'mediaManana', 'comida', 'merienda', 'cena'];
 
 const MEAL_CONFIG = {
   desayuno: { label: 'Desayuno', emoji: '🌅', time: '8:00', bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
@@ -10,11 +12,11 @@ const MEAL_CONFIG = {
 
 const patternLabels = {
   carbs: '🍚 Hidrato Blanco + Proteína',
-  legumbres: '🫘 Legumbres',
+  legumbres: '🥔 Legumbres',
   verdura: '🥗 Verdura + Proteína',
 };
 
-export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggleMed, profile = {} }) {
+export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggleMed, onSwapMeal, profile = {} }) {
   if (!day) return null;
 
   const dayTracking = tracking[day.date] || {};
@@ -84,13 +86,17 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
 
       {/* Meals */}
       <div className="space-y-3">
-        {Object.entries(day.meals).map(([key, meal]) => {
+        {MEAL_ORDER.map((key) => {
+          const meal = day.meals[key];
+          if (!meal) return null;
           const config = MEAL_CONFIG[key];
           const done = dayTracking[key];
 
           return (
-            <button
+            <div
               key={key}
+              role="button"
+              tabIndex={0}
               onClick={() => onToggleMeal(day.date, key)}
               className={`w-full text-left rounded-xl border p-4 ${config.bg} transition-all hover:shadow-md cursor-pointer ${done ? 'opacity-70' : ''}`}
             >
@@ -106,6 +112,14 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
                     <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{config.time}</span>
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{config.label}</span>
                     {meal.synjardy && <span className="text-xs">💊</span>}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onSwapMeal && onSwapMeal(day.date, key); }}
+                      className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all cursor-pointer"
+                      title="Cambiar plato"
+                    >
+                      <RefreshCw size={13} />
+                    </button>
                   </div>
                   <p className={`text-base font-medium ${done ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                     {meal.nombre}
@@ -124,7 +138,7 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
                   )}
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

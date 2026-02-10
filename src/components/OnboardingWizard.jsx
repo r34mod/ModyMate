@@ -38,6 +38,8 @@ export default function OnboardingWizard() {
   const [objetivoMin, setObjetivoMin] = useState('70');
   const [objetivoMax, setObjetivoMax] = useState('140');
 
+  const isSinDiabetes = tipoDiabetes === 'sin_diabetes';
+
   // Step 2: Tratamiento
   const [tratamiento, setTratamiento] = useState('oral');
   const [nombreMedicacion, setNombreMedicacion] = useState('Synjardy');
@@ -58,10 +60,22 @@ export default function OnboardingWizard() {
   };
 
   const handleNext = () => {
+    // Si es "sin diabetes", saltar paso 2 (tratamiento) e ir directo a alergias
+    if (step === 1 && isSinDiabetes) {
+      setTratamiento('sin_diabetes');
+      setNombreMedicacion('');
+      setStep(3);
+      return;
+    }
     if (step < 3) setStep(step + 1);
   };
 
   const handleBack = () => {
+    // Si es "sin diabetes" y estamos en alergias, volver a paso 1
+    if (step === 3 && isSinDiabetes) {
+      setStep(1);
+      return;
+    }
     if (step > 1) setStep(step - 1);
   };
 
@@ -75,7 +89,7 @@ export default function OnboardingWizard() {
         altura: altura ? parseFloat(altura) : null,
         tipo_diabetes: tipoDiabetes,
         tratamiento,
-        nombre_medicacion: tratamiento === 'dieta' ? null : nombreMedicacion.trim() || null,
+        nombre_medicacion: (tratamiento === 'dieta' || tratamiento === 'sin_diabetes') ? null : nombreMedicacion.trim() || null,
         alergias,
         objetivo_glucosa_min: parseFloat(objetivoMin),
         objetivo_glucosa_max: parseFloat(objetivoMax),
@@ -155,13 +169,14 @@ export default function OnboardingWizard() {
       {/* Tipo diabetes */}
       <div>
         <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
-          Tipo de Diabetes
+          Perfil de Salud
         </label>
         <select
           value={tipoDiabetes}
           onChange={(e) => setTipoDiabetes(e.target.value)}
           className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
         >
+          <option value="sin_diabetes">🍏 Sin Diabetes (Vida Saludable)</option>
           <option value="MODY 2">MODY 2</option>
           <option value="MODY 1">MODY 1</option>
           <option value="MODY 3">MODY 3</option>
@@ -171,7 +186,8 @@ export default function OnboardingWizard() {
         </select>
       </div>
 
-      {/* Rango glucosa */}
+      {/* Rango glucosa — solo para diabéticos */}
+      {!isSinDiabetes && (
       <div>
         <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
           <Target size={12} className="inline mr-1" />
@@ -202,6 +218,16 @@ export default function OnboardingWizard() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Info sin diabetes */}
+      {isSinDiabetes && (
+        <div className="px-3 py-2.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+          <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+            🍏 Tendrás acceso a todos los platos sin restricciones de azúcar. Solo filtraremos por alergias.
+          </p>
+        </div>
+      )}
     </div>
   );
 

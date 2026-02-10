@@ -3,6 +3,7 @@
 // Rolling Window de 15 días · Supabase · Auto-generación
 // Regla de Compensación: Comida con carbs → Cena Low Carb
 // Filtrado de alérgenos por perfil
+// Modo "sin_diabetes": variedad completa sin restricciones de IG
 // ================================================
 
 import { v4 as uuidv4 } from 'uuid';
@@ -62,7 +63,12 @@ function pickComida(pattern, recentIds, filteredMeals) {
   }
 }
 
-function pickCena(comidaHasCarbs, recentCenaIds, filteredMeals) {
+function pickCena(comidaHasCarbs, recentCenaIds, filteredMeals, sinDiabetes = false) {
+  // Sin diabetes: siempre puede elegir de todas las cenas
+  if (sinDiabetes) {
+    return pickRandom(filteredMeals.cenasFlex, recentCenaIds);
+  }
+  // Con diabetes: compensación estricta
   if (comidaHasCarbs) {
     return pickRandom(filteredMeals.cenasLow, recentCenaIds);
   }
@@ -87,14 +93,14 @@ function buildFilteredMeals(userAllergens) {
 
 // ---- Generador de un solo día ----
 
-function generateSingleDay(dateObj, dayIndex, recentMeals, filteredMeals) {
+function generateSingleDay(dateObj, dayIndex, recentMeals, filteredMeals, sinDiabetes = false) {
   const pattern = getComidaPattern(dayIndex);
 
   const desayuno = pickRandom(filteredMeals.desayunos, recentMeals.desayunos);
   const mediaManana = pickRandom(filteredMeals.mediaManana, recentMeals.mediaManana);
   const comida = pickComida(pattern, recentMeals.comidas, filteredMeals);
   const merienda = pickRandom(filteredMeals.meriendas, recentMeals.meriendas);
-  const cena = pickCena(comida.hasCarbs, recentMeals.cenas, filteredMeals);
+  const cena = pickCena(comida.hasCarbs, recentMeals.cenas, filteredMeals, sinDiabetes);
 
   // Actualizar recientes
   recentMeals.desayunos.push(desayuno.id);
@@ -115,11 +121,11 @@ function generateSingleDay(dateObj, dayIndex, recentMeals, filteredMeals) {
     pattern,
     comidaHasCarbs: !!comida.hasCarbs,
     meals: {
-      desayuno: { ...desayuno, synjardy: true },
+      desayuno: { ...desayuno, synjardy: !sinDiabetes },
       mediaManana,
       comida,
       merienda,
-      cena: { ...cena, synjardy: true },
+      cena: { ...cena, synjardy: !sinDiabetes },
     },
   };
 }
@@ -142,10 +148,11 @@ export function generateInitialPlan(fromDate = new Date(), profile = {}) {
     cenas: [],
   };
   const filteredMeals = buildFilteredMeals(profile.alergias || []);
+  const sinDiabetes = profile.tipo_diabetes === 'sin_diabetes';
 
   for (let i = 0; i < WINDOW_SIZE; i++) {
     const date = addDays(start, i);
-    plan.push(generateSingleDay(date, i, recentMeals, filteredMeals));
+    plan.push(generateSingleDay(date, i, recentMeals, filteredMeals, sinDiabetes));
   }
 
   return plan;
@@ -181,11 +188,12 @@ export function syncPlan(existingPlan, profile = {}) {
   if (lastDate < targetEnd) {
     const recentMeals = buildRecentFromPlan(plan);
     const filteredMeals = buildFilteredMeals(profile.alergias || []);
+    const sinDiabetes = profile.tipo_diabetes === 'sin_diabetes';
     let dayIndex = plan.length;
     let nextDate = addDays(lastDate, 1);
 
     while (nextDate <= targetEnd) {
-      plan.push(generateSingleDay(nextDate, dayIndex, recentMeals, filteredMeals));
+      plan.push(generateSingleDay(nextDate, dayIndex, recentMeals, filteredMeals, sinDiabetes));
       nextDate = addDays(nextDate, 1);
       dayIndex++;
     }
@@ -294,6 +302,71 @@ export async function saveTrackingDayToSupabase(userId, fecha, dayTracking) {
     );
 
   if (error) console.error('Error saving tracking:', error.message);
+}
+
+// ---- Cambiar plato (Swap Meal) ----
+
+/**
+ * Devuelve un plato alternativo del mismo tipo, respetando alergias y diabetes.
+ * @param {string} mealKey - Clave del slot: 'desayuno','mediaManana','comida','merienda','cena'
+ * @param {object} currentMeal - El plato actual que queremos cambiar
+ * @param {object} profile - Perfil del usuario (alergias, tipo_diabetes)
+ * @param {string[]} blacklistedIds - IDs a evitar (el actual + otros recientes)
+ * @param {object} dayContext - Contexto del día { pattern, comidaHasCarbs }
+ * @returns {object|null} Nuevo plato o null si no hay alternativa
+ */
+export function getAlternativeMeal(mealKey, currentMeal, profile = {}, blacklistedIds = [], dayContext = {}) {
+  const userAllergens = profile.alergias || [];
+  const sinDiabetes = profile.tipo_diabetes === 'sin_diabetes';
+  const filtered = buildFilteredMeals(userAllergens);
+
+  // Determinar el pool de platos según el slot
+  let pool;
+  switch (mealKey) {
+    case 'desayuno':
+      pool = filtered.desayunos;
+      break;
+    case 'mediaManana':
+      pool = filtered.mediaManana;
+      break;
+    case 'comida': {
+      // Respetar el patrón del día
+      const pattern = dayContext.pattern || 'verdura';
+      if (pattern === 'carbs') pool = filtered.carbs;
+      else if (pattern === 'legumbres') pool = filtered.legumbres;
+      else pool = filtered.verdura;
+      break;
+    }
+    case 'merienda':
+      pool = filtered.meriendas;
+      break;
+    case 'cena': {
+      // Respetar regla de compensación (solo diabéticos)
+      if (!sinDiabetes && dayContext.comidaHasCarbs) {
+        pool = filtered.cenasLow;
+      } else {
+        pool = filtered.cenasFlex;
+      }
+      break;
+    }
+    default:
+      return null;
+  }
+
+  // Filtrar el plato actual y blacklisted
+  const allBlacklisted = [currentMeal.id, ...blacklistedIds];
+  const candidates = pool.filter((m) => !allBlacklisted.includes(m.id));
+
+  if (candidates.length === 0) return null;
+
+  // Elegir al azar
+  const newMeal = candidates[Math.floor(Math.random() * candidates.length)];
+
+  // Mantener synjardy flag si el plato original lo tenía
+  if (currentMeal.synjardy) {
+    return { ...newMeal, synjardy: !sinDiabetes };
+  }
+  return newMeal;
 }
 
 // ---- localStorage fallback (eliminados — todo en Supabase) ----

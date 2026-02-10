@@ -1,4 +1,4 @@
-import { Pill, Check, Droplets, ChevronRight, Flame } from 'lucide-react';
+import { Pill, Check, Droplets, Flame, RefreshCw } from 'lucide-react';
 
 const MEAL_SLOTS = [
   { key: 'desayuno', label: 'Desayuno', emoji: '🌅', time: '8:00' },
@@ -8,7 +8,7 @@ const MEAL_SLOTS = [
   { key: 'cena', label: 'Cena', emoji: '🌙', time: '21:00' },
 ];
 
-export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, profile = {} }) {
+export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, onSwapMeal, profile = {} }) {
   if (!day) return null;
 
   const todayTracking = tracking[day.date] || {};
@@ -84,8 +84,10 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, pr
           const done = todayTracking[slot.key];
 
           return (
-            <button
+            <div
               key={slot.key}
+              role="button"
+              tabIndex={0}
               onClick={() => onToggleMeal(day.date, slot.key)}
               className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all cursor-pointer text-left ${
                 done
@@ -120,8 +122,16 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, pr
                 </p>
               </div>
 
-              <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 shrink-0" />
-            </button>
+              {/* Swap button */}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSwapMeal && onSwapMeal(day.date, slot.key); }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all cursor-pointer"
+                title="Cambiar plato"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </div>
           );
         })}
       </div>

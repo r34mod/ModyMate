@@ -19,6 +19,7 @@ import {
   clearPlanFromSupabase,
   loadTrackingFromSupabase,
   saveTrackingDayToSupabase,
+  getAlternativeMeal,
 } from './utils/menuGenerator';
 
 function App() {
@@ -112,6 +113,47 @@ function App() {
     [user]
   );
 
+  const handleSwapMeal = useCallback(
+    async (date, mealKey) => {
+      if (!user || !plan) return;
+
+      const dayIndex = plan.findIndex((d) => d.date === date);
+      if (dayIndex === -1) return;
+      const day = plan[dayIndex];
+      const currentMeal = day.meals[mealKey];
+      if (!currentMeal) return;
+
+      const dayContext = { pattern: day.pattern, comidaHasCarbs: day.comidaHasCarbs };
+      const newMeal = getAlternativeMeal(mealKey, currentMeal, profile, [], dayContext);
+
+      if (!newMeal) return; // No alternatives available
+
+      // Update local state immediately
+      const updatedDay = {
+        ...day,
+        meals: { ...day.meals, [mealKey]: newMeal },
+      };
+
+      // If swapping comida, recalculate comidaHasCarbs
+      if (mealKey === 'comida') {
+        updatedDay.comidaHasCarbs = !!newMeal.hasCarbs;
+      }
+
+      const updatedPlan = [...plan];
+      updatedPlan[dayIndex] = updatedDay;
+      setPlan(updatedPlan);
+
+      // Also update selectedDay if viewing detail
+      if (selectedDay && selectedDay.date === date) {
+        setSelectedDay(updatedDay);
+      }
+
+      // Persist to Supabase
+      await savePlanToSupabase(user.id, [updatedDay]);
+    },
+    [user, plan, profile, selectedDay]
+  );
+
   const handleDayClick = useCallback((day) => {
     setSelectedDay(day);
     setView('detail');
@@ -183,6 +225,7 @@ function App() {
                 tracking={tracking}
                 onToggleMeal={handleToggleMeal}
                 onToggleMed={handleToggleMed}
+                onSwapMeal={handleSwapMeal}
                 profile={profile}
               />
             )}
@@ -211,6 +254,7 @@ function App() {
             tracking={tracking}
             onToggleMeal={handleToggleMeal}
             onToggleMed={handleToggleMed}
+            onSwapMeal={handleSwapMeal}
             profile={profile}
           />
         )}
