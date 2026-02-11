@@ -202,7 +202,7 @@ export default function AuthScreen() {
         )}
 
         <p className="text-center text-[10px] text-gray-400 dark:text-gray-600 mt-6">
-          GlicoHack v4.0 · Tus datos están protegidos con Supabase
+          GlicoHack v1.0 · Tus datos están protegidos con Supabase
         </p>
       </div>
     </div>

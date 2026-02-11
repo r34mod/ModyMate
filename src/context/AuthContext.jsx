@@ -21,13 +21,13 @@ export function AuthProvider({ children }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error.message);
         return null;
       }
-      return data;
+      return data; // null si no existe aún
     } catch (err) {
       console.error('fetchProfile exception:', err);
       return null;
@@ -110,8 +110,7 @@ export function AuthProvider({ children }) {
 
     const { data, error } = await supabase
       .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', session.user.id)
+      .upsert({ id: session.user.id, ...updates, updated_at: new Date().toISOString() })
       .select()
       .single();
 
