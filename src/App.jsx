@@ -11,6 +11,7 @@ import DayDetail from './components/DayDetail';
 import ShoppingList from './components/ShoppingList';
 import GlucoseModal from './components/GlucoseModal';
 import GlucoseChart from './components/GlucoseChart';
+import Profile from './components/Profile';
 import {
   generateInitialPlan,
   syncPlan,
@@ -26,7 +27,7 @@ function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const [plan, setPlan] = useState(null);
   const [tracking, setTracking] = useState({});
-  const [view, setView] = useState('home'); // 'home' | 'detail' | 'shopping' | 'glucose'
+  const [view, setView] = useState('home'); // 'home' | 'detail' | 'shopping' | 'glucose' | 'profile'
   const [selectedDay, setSelectedDay] = useState(null);
   const [loading, setLoading] = useState(false);
   const [glucoseModalOpen, setGlucoseModalOpen] = useState(false);
@@ -43,9 +44,17 @@ function App() {
         setTracking(savedTracking);
 
         if (saved && saved.length > 0) {
+          // Plan existente → sincronizar rolling window
           const synced = syncPlan(saved, profile);
           setPlan(synced);
           await savePlanToSupabase(user.id, synced);
+        } else {
+          // Sin plan pero perfil completo → regenerar silenciosamente
+          console.log('🔄 Perfil completo sin plan — regenerando automáticamente...');
+          const newPlan = generateInitialPlan(new Date(), profile);
+          setPlan(newPlan);
+          setTracking({});
+          await savePlanToSupabase(user.id, newPlan);
         }
       } catch (err) {
         console.error('Boot error:', err);
@@ -164,13 +173,21 @@ function App() {
     setView('home');
   }, []);
 
-  // ---- Auth Loading ----
+  // ---- Auth Loading — Pantalla de carga inicial ----
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <span className="w-10 h-10 border-3 border-emerald-200 border-t-emerald-600 rounded-full animate-spin inline-block" />
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">Cargando...</p>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 flex items-center justify-center">
+        <div className="text-center animate-fade-in-up">
+          <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
+            <span className="text-4xl">🩺</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2">
+            GlicoHack
+          </h1>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <span className="w-6 h-6 border-3 border-emerald-200 border-t-emerald-600 rounded-full animate-spin inline-block" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Recuperando sesión...</p>
+          </div>
         </div>
       </div>
     );
@@ -186,6 +203,11 @@ function App() {
     return <OnboardingWizard />;
   }
 
+  // ---- Profile (full screen) ----
+  if (view === 'profile') {
+    return <Profile onBack={goHome} />;
+  }
+
   // ---- Main App ----
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayPlan = plan?.find((d) => d.date === todayStr) || null;
@@ -199,6 +221,7 @@ function App() {
         onShoppingList={() => setView('shopping')}
         onGlucose={() => setView('glucose')}
         onReset={handleReset}
+        onProfile={() => setView('profile')}
         onSignOut={signOut}
       />
 
@@ -268,6 +291,7 @@ function App() {
         {view === 'glucose' && (
           <GlucoseChart onBack={goHome} />
         )}
+
       </main>
 
       {/* FAB: Registrar glucosa */}
@@ -289,7 +313,7 @@ function App() {
 
       {/* Footer */}
       <footer className="text-center py-6 text-[10px] text-gray-400 dark:text-gray-600">
-        GlicoHack v4.0 — Plan nutricional MODY 2 · Supabase · No sustituye el consejo médico
+        GlicoHack v1.0 — Plan nutricional MODY · No sustituye el consejo médico
       </footer>
     </div>
   );

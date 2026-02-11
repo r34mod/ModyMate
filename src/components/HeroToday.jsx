@@ -17,7 +17,22 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, on
 
   const tratamiento = profile.tratamiento || 'oral';
   const medName = profile.nombre_medicacion || 'Medicación';
-  const showMeds = tratamiento !== 'dieta';
+  const showMeds = profile.takes_medication === true;
+  const medSchedule = profile.medication_schedule || [];
+
+  // Mapeo de medication_schedule keys a slots visuales
+  const MED_SLOT_MAP = {
+    breakfast: 'desayuno',
+    lunch: 'comida',
+    dinner: 'cena',
+    bedtime: 'dormir',
+  };
+  const MED_SLOT_LABELS = {
+    breakfast: 'Desayuno',
+    lunch: 'Comida',
+    dinner: 'Cena',
+    bedtime: 'Dormir',
+  };
 
   return (
     <div className="animate-fade-in-up">
@@ -47,14 +62,16 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, on
         </div>
       </div>
 
-      {/* Medication reminders */}
-      {showMeds && (
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {['desayuno', 'cena'].map((slot) => {
+      {/* Medication reminders — only shows schedule slots the user selected */}
+      {showMeds && medSchedule.length > 0 && (
+      <div className={`grid gap-3 mb-4 ${medSchedule.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {medSchedule.map((scheduleKey) => {
+          const slot = MED_SLOT_MAP[scheduleKey] || scheduleKey;
+          const label = MED_SLOT_LABELS[scheduleKey] || scheduleKey;
           const taken = todayTracking[`med_${slot}`];
           return (
             <button
-              key={slot}
+              key={scheduleKey}
               onClick={() => onToggleMed(day.date, slot)}
               className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                 taken
@@ -69,7 +86,7 @@ export default function HeroToday({ day, tracking, onToggleMeal, onToggleMed, on
               </div>
               <div className="text-left">
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold">{tratamiento === 'insulina' ? '💉 ' : '💊 '}{medName}</p>
-                <p className="text-xs font-bold text-gray-800 dark:text-gray-200 capitalize">{slot}</p>
+                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">{label}</p>
               </div>
             </button>
           );

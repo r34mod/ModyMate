@@ -24,6 +24,13 @@ const TREATMENT_OPTIONS = [
   { key: 'dieta', label: 'Solo Dieta', emoji: '🥗', Icon: Salad },
 ];
 
+const MED_SCHEDULE_OPTIONS = [
+  { key: 'breakfast', label: 'Desayuno', emoji: '🌅' },
+  { key: 'lunch', label: 'Comida', emoji: '🍽️' },
+  { key: 'dinner', label: 'Cena', emoji: '🌙' },
+  { key: 'bedtime', label: 'Antes de dormir', emoji: '🛌' },
+];
+
 export default function OnboardingWizard() {
   const { updateProfile } = useAuth();
   const [step, setStep] = useState(1);
@@ -43,6 +50,14 @@ export default function OnboardingWizard() {
   // Step 2: Tratamiento
   const [tratamiento, setTratamiento] = useState('oral');
   const [nombreMedicacion, setNombreMedicacion] = useState('Synjardy');
+  const [takesMedication, setTakesMedication] = useState(false);
+  const [medicationSchedule, setMedicationSchedule] = useState([]);
+
+  const toggleMedSchedule = (key) => {
+    setMedicationSchedule((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
 
   // Step 3: Alergias
   const [alergias, setAlergias] = useState([]);
@@ -55,7 +70,7 @@ export default function OnboardingWizard() {
 
   const canProceed = () => {
     if (step === 1) return nombre.trim().length > 0;
-    if (step === 2) return tratamiento !== '';
+    if (step === 2) return tratamiento !== '' && (!takesMedication || medicationSchedule.length > 0);
     return true;
   };
 
@@ -90,6 +105,8 @@ export default function OnboardingWizard() {
         tipo_diabetes: tipoDiabetes,
         tratamiento,
         nombre_medicacion: (tratamiento === 'dieta' || tratamiento === 'sin_diabetes') ? null : nombreMedicacion.trim() || null,
+        takes_medication: takesMedication,
+        medication_schedule: takesMedication ? medicationSchedule : [],
         alergias,
         objetivo_glucosa_min: parseFloat(objetivoMin),
         objetivo_glucosa_max: parseFloat(objetivoMax),
@@ -286,6 +303,70 @@ export default function OnboardingWizard() {
           💡 Si usas insulina + pastillas, selecciona &quot;Insulina&quot; y pondremos recordatorios para ambas.
         </p>
       </div>
+
+      {/* ¿Tomas medicación? */}
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-5">
+        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center">
+          ¿Tomas medicación o insulina?
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {[{ val: true, label: 'Sí', emoji: '💊' }, { val: false, label: 'No', emoji: '❌' }].map((opt) => (
+            <button
+              key={String(opt.val)}
+              type="button"
+              onClick={() => {
+                setTakesMedication(opt.val);
+                if (!opt.val) setMedicationSchedule([]);
+              }}
+              className={`flex items-center justify-center gap-2 p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
+                takesMedication === opt.val
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 shadow-lg shadow-emerald-500/20'
+                  : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <span className="text-xl">{opt.emoji}</span>
+              <span className={`text-sm font-bold ${
+                takesMedication === opt.val ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-300'
+              }`}>{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Horarios de medicación */}
+      {takesMedication && (
+        <div className="animate-fade-in-up">
+          <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
+            ¿En qué momentos?
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {MED_SCHEDULE_OPTIONS.map((opt) => {
+              const isSelected = medicationSchedule.includes(opt.key);
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => toggleMedSchedule(opt.key)}
+                  className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-rose-400 bg-rose-50 dark:bg-rose-900/30'
+                      : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-lg">{opt.emoji}</span>
+                  <span className={`text-xs font-bold ${
+                    isSelected ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-300'
+                  }`}>{opt.label}</span>
+                  {isSelected && <Check size={14} className="ml-auto text-rose-500" />}
+                </button>
+              );
+            })}
+          </div>
+          {medicationSchedule.length === 0 && (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 font-medium">⚠️ Selecciona al menos un momento</p>
+          )}
+        </div>
+      )}
     </div>
   );
 

@@ -1,7 +1,7 @@
 import { Activity, ShoppingCart, RotateCcw, TrendingUp, LogOut, User } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
-export default function Header({ hasPlan, profile, onShoppingList, onGlucose, onReset, onSignOut }) {
+export default function Header({ hasPlan, profile, onShoppingList, onGlucose, onReset, onProfile, onSignOut }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -81,6 +81,16 @@ export default function Header({ hasPlan, profile, onShoppingList, onGlucose, on
                     {profile?.medicacion || 'Synjardy'}
                   </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onProfile();
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors cursor-pointer"
+                >
+                  <User size={14} />
+                  Mi Perfil
+                </button>
                 <button
                   onClick={() => {
                     setMenuOpen(false);

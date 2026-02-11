@@ -22,7 +22,21 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
   const dayTracking = tracking[day.date] || {};
   const tratamiento = profile.tratamiento || 'oral';
   const medName = profile.nombre_medicacion || 'Medicación';
-  const showMeds = tratamiento !== 'dieta';
+  const showMeds = profile.takes_medication === true;
+  const medSchedule = profile.medication_schedule || [];
+
+  const MED_SLOT_MAP = {
+    breakfast: 'desayuno',
+    lunch: 'comida',
+    dinner: 'cena',
+    bedtime: 'dormir',
+  };
+  const MED_SLOT_LABELS = {
+    breakfast: 'Desayuno',
+    lunch: 'Comida',
+    dinner: 'Cena',
+    bedtime: 'Dormir',
+  };
 
   return (
     <div className="animate-fade-in-up">
@@ -54,14 +68,16 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
         )}
       </div>
 
-      {/* Medication */}
-      {showMeds && (
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        {['desayuno', 'cena'].map((slot) => {
+      {/* Medication — personalized schedule */}
+      {showMeds && medSchedule.length > 0 && (
+      <div className={`grid gap-3 mb-5 ${medSchedule.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {medSchedule.map((scheduleKey) => {
+          const slot = MED_SLOT_MAP[scheduleKey] || scheduleKey;
+          const label = MED_SLOT_LABELS[scheduleKey] || scheduleKey;
           const taken = dayTracking[`med_${slot}`];
           return (
             <button
-              key={slot}
+              key={scheduleKey}
               onClick={() => onToggleMed(day.date, slot)}
               className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                 taken
@@ -76,7 +92,7 @@ export default function DayDetail({ day, onBack, tracking, onToggleMeal, onToggl
               </div>
               <div className="text-left">
                 <p className="text-[10px] text-gray-400 uppercase font-bold">{tratamiento === 'insulina' ? '💉 ' : '💊 '}{medName}</p>
-                <p className="text-xs font-bold text-gray-700 dark:text-gray-300 capitalize">{slot}</p>
+                <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{label}</p>
               </div>
             </button>
           );
