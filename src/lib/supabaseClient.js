@@ -20,7 +20,7 @@ export const supabase = createClient(
   {
     auth: {
       autoRefreshToken: true,
-      persistSession: true,
+      persistSession: false,   // No cachear sesión — siempre arranca en login
       detectSessionInUrl: true,
     },
   }
